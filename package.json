@@ -1,0 +1,82 @@
+{
+  "name": "bb-plugin-todo",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Hierarchical session todos for BB agents — nested sub-tasks, dependsOn/requires, live composer UI.",
+  "license": "MIT",
+  "author": "agustif",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agustif/bb-plugin-todo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agustif/bb-plugin-todo/issues"
+  },
+  "homepage": "https://github.com/agustif/bb-plugin-todo#readme",
+  "engines": {
+    "bb": ">=0.36",
+    "bbPluginSdk": "^0.4.1",
+    "node": ">=22"
+  },
+  "bb": {
+    "name": "Todo",
+    "description": "Hierarchical session todos for agents with nested sub-tasks, dependsOn/requires, and a live composer checklist.",
+    "branding": {
+      "icon": "ListTodo"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ]
+  },
+  "keywords": [
+    "bb",
+    "bb-plugin",
+    "todo",
+    "checklist",
+    "agent",
+    "multi-agent"
+  ],
+  "files": [
+    "dist/app.js",
+    "dist/app.css",
+    "dist/app.meta.json",
+    "dist/server.js",
+    "dist/server.meta.json",
+    "server.ts",
+    "app.tsx",
+    "app.css",
+    "src/**/*.ts",
+    "skills",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "bb plugin build",
+    "dev": "bb plugin dev",
+    "types": "bb plugin types",
+    "test": "node --experimental-strip-types --import ./scripts/register-ts.mjs src/tool.selftest.mjs",
+    "prepublishOnly": "bb plugin build && npm test"
+  },
+  "dependencies": {
+    "@hugeicons/core-free-icons": "^4.1.3",
+    "@hugeicons/react": "^1.1.6",
+    "@radix-ui/react-slot": "^1.3.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@radix-ui/react-dialog": "^1.1.19",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "hono": "^4.11.9",
+    "typescript": "^5.7.0",
+    "vaul": "^1.1.2"
+  }
+}

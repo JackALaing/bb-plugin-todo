@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build output (git installs rebuild; npm packages ship dist via `files`)
+dist/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.log
+.npm-cache/
+.turbo/
+
+# Local pack artifacts
+*.tgz

@@ -1,0 +1,10 @@
+# Keep pack contents explicit via package.json "files".
+# This file only excludes common junk if someone expands "files" later.
+node_modules/
+*.tgz
+*.log
+.DS_Store
+.git/
+.github/
+.vscode/
+.idea/
