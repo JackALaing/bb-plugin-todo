@@ -92,6 +92,13 @@ export function buildWorkerPrompt(args: {
     .join("\n");
 }
 
+// Todos whose worker is being spawned, keyed by parent thread and todo id.
+// Link and dispatch refuse these, so the slow spawn call cannot race another
+// assignment of the same todo in this plugin instance.
+const starting = new Set<string>();
+const startingKey = (parentThreadId: string, todoId: string) =>
+  `${parentThreadId}\u0000${todoId}`;
+
 export function canDispatch(
   item: TodoItem,
   snapshot: TodoSnapshot,
@@ -169,12 +176,15 @@ export async function linkTodo(args: {
     };
   }
 
-  // Read the list after the await so a concurrent report or edit is kept.
+  // Read the list after the lookup so an edit made during it is kept.
   const snapshot = store.get(parentThreadId);
   const item = snapshot.items.find((i) => i.id === todoId);
   if (!item) return { ok: false, error: `Unknown id "${todoId}".` };
   if (item.status === "completed" || item.status === "cancelled") {
     return { ok: false, error: `Todo ${item.id} is already ${item.status}.` };
+  }
+  if (starting.has(startingKey(parentThreadId, item.id))) {
+    return { ok: false, error: `Todo ${item.id} is being dispatched.` };
   }
   if (item.assigneeThreadId) {
     return {
@@ -340,6 +350,12 @@ export async function dispatchTodos(args: {
       errors.push(gate.reason);
       continue;
     }
+    const key = startingKey(parentThreadId, todoId);
+    if (starting.has(key)) {
+      errors.push(`Todo ${todoId} is being dispatched.`);
+      continue;
+    }
+    const priorAssignee = item.assigneeThreadId;
 
     const title = `[${roleLabel(item.assigneeRole, item.assigneeLabel)}:${item.id}] ${item.content}`.slice(
       0,
@@ -371,7 +387,33 @@ export async function dispatchTodos(args: {
         spawnArgs.model = spawnModel;
       }
 
-      const child = await bb.sdk.threads.spawn(spawnArgs);
+      starting.add(key);
+      let child: Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["spawn"]>>;
+      try {
+        child = await bb.sdk.threads.spawn(spawnArgs);
+      } finally {
+        starting.delete(key);
+      }
+      // Re-read after the spawn and change only this todo, so edits, reports
+      // and links saved meanwhile are kept.
+      snapshot = store.get(parentThreadId);
+      const current = snapshot.items.find((row) => row.id === todoId);
+      // An idle or failed worker assigned before the spawn is replaced, as
+      // before; only an assignment that changed during the spawn conflicts.
+      const conflict = !current
+        ? "was removed"
+        : current.status === "completed" || current.status === "cancelled"
+          ? `is now ${current.status}`
+          : current.assigneeThreadId &&
+              current.assigneeThreadId !== priorAssignee
+            ? `is now linked to ${current.assigneeThreadId}`
+            : null;
+      if (conflict) {
+        errors.push(
+          `Todo ${todoId} ${conflict}, so worker ${child.id} was started but is not tracked. Link it to a todo or archive it.`,
+        );
+        continue;
+      }
       const nextItems = snapshot.items.map((row) =>
         row.id === todoId
           ? patchItem(

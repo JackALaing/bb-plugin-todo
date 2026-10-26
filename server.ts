@@ -65,8 +65,8 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.agents.configure(({ threadId }) => {
-    const linked = store.findByChildThread(threadId);
+  bb.agents.configure(({ thread }) => {
+    const linked = store.findByChildThread(thread.id);
     if (linked) {
       return {
         tools: [TOOL_NAME],

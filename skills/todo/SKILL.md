@@ -79,8 +79,10 @@ project and not archived; the todo's dependencies must be done:
 { "action": "link", "id": "api.routes", "threadId": "thr_…" }
 ```
 
-The linked thread gets the same worker instructions and `report`s the same way.
-`link` does not spawn a thread or change its model.
+The linked thread gets the worker instructions when its agent configuration is
+next resolved, and `report`s the same way. It does not get the task prompt a
+dispatched worker starts with, so tell it what to do yourself. `link` does not
+spawn, message or wake the thread, or change its model.
 
 Parent owns the plan. Children only `report`.
 
