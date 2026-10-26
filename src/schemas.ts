@@ -106,6 +106,8 @@ export const todoToolInputSchema = z
     visibility: z.enum(["visible", "hidden"]).optional(),
     /** auto-complete parent todo when child goes idle without report (default false) */
     autoCompleteOnIdle: z.boolean().optional(),
+    /** link: existing thread to attach to `id` as its worker */
+    threadId: z.string().min(1).max(128).optional(),
   })
   .strict();
 
@@ -130,6 +132,7 @@ Use ONE tool for every todo operation via \`action\`:
 - assign — set assignee role on id(s): self | scout | worker | reviewer | custom
 - dispatch — spawn a BB child thread for id(s) (role must not be self; deps must be done)
 - dispatch-ready — dispatch every ready non-self assigned todo (max 8)
+- link — attach an existing thread (\`threadId\`) in this project to \`id\` as its worker, without spawning one
 - release — detach child thread link from id(s)
 - report — from a dispatched CHILD thread: complete/block the linked parent todo
 
@@ -154,6 +157,11 @@ Shorthand: omit action and pass \`items\` ⇒ set.
    → spawns a child thread (parentThreadId=this), seeds prompt, links assigneeThreadId.
 4. Child finishes with: { "action":"report", "status":"completed", "summary":"…" }
 5. Parent may dispatch-ready to fan out the next wave.
+
+If the worker thread already exists (created by you, another plugin or an
+orchestrator), link it instead of dispatching:
+{ "action":"link", "id":"api.routes", "threadId":"thr_…" }
+The linked thread then reports exactly like a dispatched child.
 
 Rules: prefer exactly one in_progress on the parent; children own their thread.
 Do not use for trivial single-step requests.

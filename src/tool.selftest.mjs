@@ -244,4 +244,92 @@ assert.match(out, /1\/3 complete|1\/3 complete/i);
 const md = formatSnapshotMarkdown(store.get("thr_test"));
 assert.match(md, /\*\*a\*\*/);
 
+// link: attach an existing thread as a todo's worker without spawning one.
+{
+  const linkStore = memoryStore();
+  const threads = {
+    thr_worker: { projectId: "proj_test" },
+    thr_worker2: { projectId: "proj_test" },
+    thr_elsewhere: { projectId: "proj_other" },
+    thr_archived: { projectId: "proj_test", archivedAt: 1 },
+  };
+  const linkCtx = {
+    ...ctx,
+    threadId: "thr_parent",
+    store: linkStore,
+    bb: {
+      sdk: {
+        threads: {
+          get: async ({ threadId }) => {
+            const row = threads[threadId];
+            if (!row) throw new Error("thread not found");
+            return { id: threadId, archivedAt: null, deletedAt: null, ...row };
+          },
+          spawn: async () => {
+            throw new Error("link must not spawn");
+          },
+        },
+      },
+    },
+  };
+  await executeTodoTool(
+    {
+      action: "set",
+      items: [
+        { id: "first", content: "First" },
+        { id: "second", content: "Second", dependsOn: ["first"] },
+        { id: "third", content: "Third" },
+        { id: "done", content: "Done", status: "completed" },
+      ],
+    },
+    linkCtx,
+  );
+  // Successful calls return markdown; failures return an isError result.
+  const text = (result) =>
+    typeof result === "string" ? result : `ERROR: ${result.content[0].text}`;
+  const link = async (id, threadId) =>
+    text(await executeTodoTool({ action: "link", id, threadId }, linkCtx));
+  const itemOf = (id) =>
+    linkStore.get("thr_parent").items.find((item) => item.id === id);
+
+  assert.match(
+    text(await executeTodoTool({ action: "link", id: "first" }, linkCtx)),
+    /^ERROR: link requires `id` and `threadId`/,
+  );
+  assert.match(await link("first", "thr_parent"), /^ERROR: .*own worker/);
+  assert.match(await link("first", "thr_missing"), /^ERROR: Could not read thread thr_missing/);
+  assert.match(await link("first", "thr_elsewhere"), /^ERROR: .*different project/);
+  assert.match(await link("first", "thr_archived"), /^ERROR: .*archived/);
+  assert.match(await link("second", "thr_worker"), /^ERROR: .*blocked by: first/);
+  assert.match(await link("done", "thr_worker"), /^ERROR: .*already completed/);
+  assert.match(await link("nope", "thr_worker"), /^ERROR: Unknown id/);
+  assert.equal(itemOf("first").assigneeThreadId, null);
+
+  const linked = await link("first", "thr_worker");
+  assert.match(linked, /linked first → thr_worker/);
+  assert.equal(itemOf("first").status, "in_progress");
+  assert.equal(itemOf("first").assigneeThreadId, "thr_worker");
+  assert.equal(itemOf("first").dispatchStatus, "running");
+  assert.equal(itemOf("first").assigneeRole, "worker");
+  assert.equal(publishes.at(-1), "thr_parent");
+
+  assert.match(await link("first", "thr_worker2"), /^ERROR: .*already linked to thr_worker; release it first/);
+  assert.match(await link("third", "thr_worker"), /^ERROR: .*already the worker for todo first/);
+
+  // The linked thread reports like a dispatched child.
+  const report = text(
+    await executeTodoTool(
+      { action: "report", status: "completed", summary: "Shipped" },
+      { ...linkCtx, threadId: "thr_worker" },
+    ),
+  );
+  assert.match(report, /report first → completed/);
+  assert.equal(itemOf("first").status, "completed");
+  assert.equal(itemOf("first").lastReport, "Shipped");
+
+  // Releasing frees the thread for another todo.
+  await executeTodoTool({ action: "release", id: "first" }, linkCtx);
+  assert.match(await link("third", "thr_worker"), /linked third → thr_worker/);
+}
+
 console.log("ok — todo selftest passed");

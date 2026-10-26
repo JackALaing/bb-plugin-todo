@@ -23,7 +23,8 @@ Skip for trivial single-step asks.
 
 ```
 list | set | add | update | start | complete | cancel | remove | clear
-move | depend | mark | assign | dispatch | dispatch-ready | release | report
+move | depend | mark | assign | dispatch | dispatch-ready | link | release
+report
 ```
 
 Shorthand: pass only `items` → `set`.
@@ -69,6 +70,17 @@ Shorthand: pass only `items` → `set`.
 ```
 
 5. `release` detaches a child link without deleting the todo
+
+If the worker thread already exists (you, another plugin or an orchestrator
+created it), `link` it instead of dispatching. The thread must be in this
+project and not archived; the todo's dependencies must be done:
+
+```json
+{ "action": "link", "id": "api.routes", "threadId": "thr_…" }
+```
+
+The linked thread gets the same worker instructions and `report`s the same way.
+`link` does not spawn a thread or change its model.
 
 Parent owns the plan. Children only `report`.
 
